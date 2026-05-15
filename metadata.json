@@ -1,0 +1,6 @@
+{
+  "name": "SeatIdle",
+  "description": "Real-time library occupancy monitoring system with student dashboard and staff admin panel.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

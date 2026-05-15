@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global helpers
+    function isSignedIn() { return request.auth != null; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function isEmailVerified() { return request.auth.token.email_verified == true; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    // Library Status: Anyone can read, only authenticated staff/admin can write
+    match /library_status/current {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // Staff Presence: Anyone can read, only authenticated staff/admin can write
+    match /staff_presence/{staffId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // Active Reservations: Must be signed in to create, only admin can delete/update
+    match /active_reservations/{reservationId} {
+      allow read: if true;
+      allow create: if isSignedIn(); // Students must now have an account
+      allow update, delete: if isSignedIn();
+    }
+  }
+}

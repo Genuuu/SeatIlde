@@ -1,0 +1,52 @@
+{
+  "entities": {
+    "LibraryStatus": {
+      "title": "Library Status",
+      "description": "Real-time occupancy and capacity data for the library.",
+      "type": "object",
+      "properties": {
+        "capacity": { "type": "number", "description": "Maximum seating capacity." },
+        "occupancy": { "type": "number", "description": "Current number of people in the library." },
+        "last_updated": { "type": "string", "format": "date-time", "description": "Last time sensors updated state." },
+        "system_online": { "type": "boolean", "description": "Whether the monitoring system is online." }
+      },
+      "required": ["capacity", "occupancy", "last_updated", "system_online"]
+    },
+    "StaffPresence": {
+      "title": "Staff Presence",
+      "description": "Details about library staff presence.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the staff member." },
+        "is_present": { "type": "boolean", "description": "Current presence status." }
+      },
+      "required": ["name", "is_present"]
+    },
+    "ActiveReservation": {
+      "title": "Active Reservation",
+      "description": "A seat reservation made by a student.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the student." },
+        "time": { "type": "string", "description": "Time slot (e.g. 08:00-10:00)." },
+        "is_used": { "type": "boolean", "description": "Whether the reservation has been fulfilled." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the reservation was created." }
+      },
+      "required": ["name", "time", "is_used", "createdAt"]
+    }
+  },
+  "firestore": {
+    "library_status/current": {
+      "schema": "LibraryStatus",
+      "description": "The singleton document for current library state."
+    },
+    "staff_presence/{staffId}": {
+      "schema": "StaffPresence",
+      "description": "Collection of staff members and their presence."
+    },
+    "active_reservations/{reservationId}": {
+      "schema": "ActiveReservation",
+      "description": "Collection of active student reservations."
+    }
+  }
+}
