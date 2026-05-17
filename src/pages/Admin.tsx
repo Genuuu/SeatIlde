@@ -1,10 +1,13 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import { ref, onValue, set, push, remove, update } from 'firebase/database';
+import { auth, database } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
-import { Settings, Users, Calendar, Plus, Trash2, LogIn, Lock, Mail, Save, AlertTriangle } from 'lucide-react';
+import { Settings, Users, Calendar, Plus, Trash2, LogIn, Lock, Mail, Save, AlertTriangle, TrendingUp, BarChart3, PieChart } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { Loader } from '../components/ui/Loader';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 
 // Types
 interface LibraryStatus {
@@ -38,6 +41,9 @@ interface Reservation {
 export function Admin() {
   const { user, loading } = useAuth();
   
+  const ALLOWED_ADMINS = ['admin@seatidle.com', 'genukakisara@gmail.com'];
+  const isAdmin = user && ALLOWED_ADMINS.includes(user.email || '');
+
   // Auth Form State
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -60,32 +66,108 @@ export function Admin() {
   const [newStaffName, setNewStaffName] = useState('');
   const [announcementText, setAnnouncementText] = useState('');
   const [showResetDialog, setShowResetDialog] = useState(false);
+  const [activeTab, setActiveTab] = useState<'management' | 'reports'>('management');
 
-  // Load and Persist
+  // Loading States
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isAddingStaff, setIsAddingStaff] = useState(false);
+  const [isAddingAnnouncement, setIsAddingAnnouncement] = useState(false);
+  const [historyData, setHistoryData] = useState<any[]>([]);
+
+  // Database Listeners
   useEffect(() => {
-    if (!user) return;
+    if (!user || !isAdmin) return;
 
-    const savedStatus = localStorage.getItem('seatidle_status');
-    const savedStaff = localStorage.getItem('seatidle_staff');
-    const savedRes = localStorage.getItem('seatidle_reservations');
-    const savedAnnouncements = localStorage.getItem('seatidle_announcements');
+    // 1. Library Status
+    const statusRef = ref(database, 'library_status');
+    const unsubscribeStatus = onValue(statusRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setStatus(data);
+        setEditCapacity(data.capacity.toString());
+        setEditOccupancy(data.occupancy.toString());
+      }
+    });
 
-    if (savedStatus) {
-      const parsed = JSON.parse(savedStatus);
-      setStatus(parsed);
-      setEditCapacity(parsed.capacity.toString());
-      setEditOccupancy(parsed.occupancy.toString());
+    // 2. Staff Presence
+    const staffRef = ref(database, 'staff_presence');
+    const unsubscribeStaff = onValue(staffRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const list = Object.entries(data).map(([id, val]: [string, any]) => ({ id, ...val }));
+        setStaffList(list);
+      } else {
+        setStaffList([]);
+      }
+    });
+
+    // 3. active_reservations
+    const resRef = ref(database, 'active_reservations');
+    const unsubscribeRes = onValue(resRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const list = Object.entries(data).map(([id, val]: [string, any]) => ({ id, ...val }));
+        setReservations(list);
+      } else {
+        setReservations([]);
+      }
+    });
+
+    // 4. announcements
+    const annRef = ref(database, 'announcements');
+    const unsubscribeAnn = onValue(annRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const list = Object.entries(data).map(([id, val]: [string, any]) => ({ id, ...val }))
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setAnnouncements(list);
+      } else {
+        setAnnouncements([]);
+      }
+    });
+
+    // 5. history
+    const historyRef = ref(database, 'occupancy_history');
+    const unsubscribeHistory = onValue(historyRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const list = Object.entries(data).map(([id, val]: [string, any]) => ({ 
+          timestamp: new Date(val.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          fullDate: val.timestamp,
+          occupancy: val.occupancy 
+        })).sort((a, b) => new Date(a.fullDate).getTime() - new Date(b.fullDate).getTime());
+        
+        // Take last 24 entries for a "recent" trend
+        setHistoryData(list.slice(-24));
+      }
+    });
+
+    return () => {
+      unsubscribeStatus();
+      unsubscribeStaff();
+      unsubscribeRes();
+      unsubscribeAnn();
+      unsubscribeHistory();
+    };
+  }, [user, isAdmin]);
+
+  // History Logger logic
+  useEffect(() => {
+    if (!isAdmin || !status.occupancy) return;
+    
+    // Auto-log history every 30 mins or on manual update
+    const lastLogTime = localStorage.getItem('last_history_log');
+    const now = Date.now();
+    
+    if (!lastLogTime || (now - parseInt(lastLogTime)) > 1000 * 60 * 30) {
+      const historyRef = ref(database, 'occupancy_history');
+      push(historyRef, {
+        timestamp: new Date().toISOString(),
+        occupancy: status.occupancy
+      });
+      localStorage.setItem('last_history_log', now.toString());
     }
-    if (savedStaff) setStaffList(JSON.parse(savedStaff));
-    if (savedRes) setReservations(JSON.parse(savedRes));
-    if (savedAnnouncements) setAnnouncements(JSON.parse(savedAnnouncements));
-  }, [user]);
-
-  const saveToStorage = (type: 'status' | 'staff' | 'res' | 'announcements', data: any) => {
-    localStorage.setItem(`seatidle_${type}`, JSON.stringify(data));
-    // Trigger storage event for cross-tab sync if in the same browser
-    window.dispatchEvent(new Event('storage'));
-  };
+  }, [status.occupancy, isAdmin]);
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
@@ -136,92 +218,127 @@ export function Admin() {
     }
   };
 
-  const updateStatus = () => {
-    const newStatus = {
-      ...status,
-      capacity: parseInt(editCapacity) || 50,
-      occupancy: parseInt(editOccupancy) || 0,
-      last_updated: new Date().toISOString()
-    };
-    setStatus(newStatus);
-    saveToStorage('status', newStatus);
-    alert('Status updated successfully');
+  const updateStatus = async () => {
+    setIsUpdatingStatus(true);
+    try {
+      const statusRef = ref(database, 'library_status');
+      const timestamp = new Date().toISOString();
+      const newStatus = {
+        capacity: parseInt(editCapacity) || 50,
+        occupancy: parseInt(editOccupancy) || 0,
+        system_online: true,
+        last_updated: timestamp
+      };
+      await set(statusRef, newStatus);
+      
+      // Also log to history immediately on manual change
+      const historyRef = ref(database, 'occupancy_history');
+      await push(historyRef, {
+        timestamp,
+        occupancy: newStatus.occupancy
+      });
+      localStorage.setItem('last_history_log', Date.now().toString());
+
+      alert('Status updated and logged successfully');
+    } catch (err) {
+      console.error("Update error:", err);
+    } finally {
+      setIsUpdatingStatus(false);
+    }
   };
 
-  const toggleStaffPresence = (id: string, current: boolean) => {
-    const updated = staffList.map(s => s.id === id ? { ...s, is_present: !current } : s);
-    setStaffList(updated);
-    saveToStorage('staff', updated);
+  const toggleStaffPresence = async (id: string, current: boolean) => {
+    try {
+      const staffMemberRef = ref(database, `staff_presence/${id}`);
+      await update(staffMemberRef, { is_present: !current });
+    } catch (err) {
+      console.error("Toggle error:", err);
+    }
   };
 
-  const addStaff = () => {
+  const addStaff = async () => {
     if (!newStaffName.trim()) return;
-    const newStaff = {
-      id: Date.now().toString(),
-      name: newStaffName,
-      is_present: false
-    };
-    const updated = [...staffList, newStaff];
-    setStaffList(updated);
-    saveToStorage('staff', updated);
-    setNewStaffName('');
+    setIsAddingStaff(true);
+    try {
+      const staffRef = ref(database, 'staff_presence');
+      await push(staffRef, {
+        name: newStaffName,
+        is_present: false
+      });
+      setNewStaffName('');
+    } catch (err) {
+      console.error("Add staff error:", err);
+    } finally {
+      setIsAddingStaff(false);
+    }
   };
 
-  const deleteStaff = (id: string) => {
+  const deleteStaff = async (id: string) => {
     if (confirm('Are you sure you want to remove this staff member?')) {
-      const updated = staffList.filter(s => s.id !== id);
-      setStaffList(updated);
-      saveToStorage('staff', updated);
+      try {
+        await remove(ref(database, `staff_presence/${id}`));
+      } catch (err) {
+        console.error("Delete staff error:", err);
+      }
     }
   };
 
-  const deleteReservation = (id: string) => {
+  const deleteReservation = async (id: string) => {
     if (confirm('Are you sure you want to delete this reservation?')) {
-      const updated = reservations.filter(r => r.id !== id);
-      setReservations(updated);
-      saveToStorage('res', updated);
+      try {
+        await remove(ref(database, `active_reservations/${id}`));
+      } catch (err) {
+        console.error("Delete reservation error:", err);
+      }
     }
   };
 
-  const markReservationUsed = (id: string) => {
-    const updated = reservations.map(r => r.id === id ? { ...r, is_used: true } : r);
-    setReservations(updated);
-    saveToStorage('res', updated);
+  const markReservationUsed = async (id: string) => {
+    try {
+      const resRef = ref(database, `active_reservations/${id}`);
+      await update(resRef, { is_used: true });
+    } catch (err) {
+      console.error("Update reservation error:", err);
+    }
   };
 
-  const addAnnouncement = () => {
+  const addAnnouncement = async () => {
     if (!announcementText.trim()) return;
-    const newAnn: Announcement = {
-      id: Date.now().toString(),
-      text: announcementText,
-      createdAt: new Date().toISOString()
-    };
-    const updated = [newAnn, ...announcements];
-    setAnnouncements(updated);
-    saveToStorage('announcements', updated);
-    setAnnouncementText('');
+    setIsAddingAnnouncement(true);
+    try {
+      const annRef = ref(database, 'announcements');
+      await push(annRef, {
+        text: announcementText,
+        createdAt: new Date().toISOString()
+      });
+      setAnnouncementText('');
+    } catch (err) {
+      console.error("Add announcement error:", err);
+    } finally {
+      setIsAddingAnnouncement(false);
+    }
   };
 
-  const deleteAnnouncement = (id: string) => {
-    const updated = announcements.filter(a => a.id !== id);
-    setAnnouncements(updated);
-    saveToStorage('announcements', updated);
+  const deleteAnnouncement = async (id: string) => {
+    try {
+      await remove(ref(database, `announcements/${id}`));
+    } catch (err) {
+      console.error("Delete announcement error:", err);
+    }
   };
 
-  const confirmReset = () => {
-    localStorage.removeItem('seatidle_status');
-    localStorage.removeItem('seatidle_staff');
-    localStorage.removeItem('seatidle_reservations');
-    localStorage.removeItem('seatidle_announcements');
-    window.location.reload();
+  const confirmReset = async () => {
+    try {
+      await remove(ref(database, '/'));
+      window.location.reload();
+    } catch (err) {
+      console.error("Reset error:", err);
+    }
   };
 
   const resetData = () => {
     setShowResetDialog(true);
   };
-
-  const ALLOWED_ADMINS = ['admin@seatidle.com', 'genukakisara@gmail.com'];
-  const isAdmin = user && ALLOWED_ADMINS.includes(user.email || '');
 
   if (loading) return null;
 
@@ -323,257 +440,394 @@ export function Admin() {
 
   return (
     <div className="max-w-[1400px] mx-auto p-4 md:p-8 space-y-8">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
-        {/* Seat Control */}
-        <div className="lg:col-span-4 flex flex-col space-y-8 transition-colors">
-          <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
-            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest mb-8 flex items-center">
-              <Settings className="w-4 h-4 mr-2 text-brand-green" />
-              Library Capacity
-            </h3>
-            <div className="space-y-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="text-[10px] font-bold uppercase text-slate-400 dark:text-slate-500 block mb-1.5 tracking-widest ml-1">Total Capacity</label>
-                  <input 
-                    type="number"
-                    value={editCapacity}
-                    onChange={(e) => setEditCapacity(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-lg font-bold text-slate-700 dark:text-slate-200"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold uppercase text-slate-400 dark:text-slate-500 block mb-1.5 tracking-widest ml-1">Manual Occupancy</label>
-                  <input 
-                    type="number"
-                    value={editOccupancy}
-                    onChange={(e) => setEditOccupancy(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-lg font-bold text-slate-700 dark:text-slate-200"
-                  />
-                </div>
-              </div>
-              <button 
-                onClick={updateStatus}
-                className="w-full bg-brand-blue text-white font-bold py-4 rounded-2xl shadow-lg shadow-brand-blue/10 dark:shadow-none hover:bg-brand-blue/90 transition-all flex items-center justify-center group"
-              >
-                <Save className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
-                Update Real-time Feed
-              </button>
-              
-              <button 
-                onClick={resetData}
-                className="w-full bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 font-bold py-3 rounded-2xl border border-red-100 dark:border-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/40 transition-all text-xs flex items-center justify-center"
-              >
-                <Trash2 className="w-3.5 h-3.5 mr-2" />
-                Reset System Defaults
-              </button>
-            </div>
-          </section>
-
-          {/* Add Staff Section */}
-          <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
-            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest mb-6 flex items-center">
-              <Plus className="w-4 h-4 mr-2 text-brand-green" />
-              Register Staff
-            </h3>
-            <div className="flex gap-3">
-              <input 
-                type="text"
-                placeholder="Full Name"
-                value={newStaffName}
-                onChange={(e) => setNewStaffName(e.target.value)}
-                className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue dark:text-slate-200 transition-all"
-              />
-              <button 
-                onClick={addStaff}
-                className="bg-brand-blue/5 dark:bg-brand-blue/30 text-brand-blue dark:text-brand-green px-4 rounded-2xl font-bold text-xs hover:bg-brand-blue hover:text-white transition-all"
-              >
-                ADD
-              </button>
-            </div>
-          </section>
-
-          {/* New Announcement Section */}
-          <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
-            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest mb-6 flex items-center">
-              <Mail className="w-4 h-4 mr-2 text-brand-green" />
-              Post Announcement
-            </h3>
-            <div className="space-y-4">
-              <textarea 
-                rows={3}
-                placeholder="Type important notice for students..."
-                value={announcementText}
-                onChange={(e) => setAnnouncementText(e.target.value)}
-                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue dark:text-slate-200 transition-all resize-none"
-              />
-              <button 
-                onClick={addAnnouncement}
-                className="w-full bg-brand-blue/5 dark:bg-brand-blue/30 text-brand-blue dark:text-brand-green py-3 rounded-2xl font-bold text-xs hover:bg-brand-blue hover:text-white transition-all"
-              >
-                POST NOTICE
-              </button>
-            </div>
-
-            {announcements.length > 0 && (
-              <div className="mt-8 space-y-4">
-                <p className="text-[10px] font-bold uppercase text-slate-400 tracking-widest">Active Notices</p>
-                <div className="space-y-3">
-                  {announcements.map(ann => (
-                    <div key={ann.id} className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 relative group">
-                      <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed pr-6">{ann.text}</p>
-                      <button 
-                        onClick={() => deleteAnnouncement(ann.id)}
-                        className="absolute top-2 right-2 p-1 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </section>
-        </div>
-
-        {/* Staff Table */}
-        <div className="lg:col-span-8">
-          <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden h-full flex flex-col transition-colors">
-            <div className="p-8 pb-4">
-              <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest flex items-center">
-                <Users className="w-4 h-4 mr-2 text-brand-green" />
-                Personnel Management
-              </h3>
-            </div>
-            <div className="flex-1 overflow-auto">
-              <table className="w-full text-left">
-                <thead className="bg-slate-50 dark:bg-slate-800/50 border-y border-slate-100 dark:border-slate-800 text-[10px] font-bold uppercase text-slate-400 dark:text-slate-500 tracking-widest">
-                  <tr>
-                    <th className="px-8 py-4">Name</th>
-                    <th className="px-8 py-4">Status</th>
-                    <th className="px-8 py-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {staffList.map(staff => (
-                    <tr key={staff.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                      <td className="px-8 py-5">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 font-bold text-xs">
-                            {staff.name.split(' ').map(n => n[0]).join('')}
-                          </div>
-                          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{staff.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-8 py-5">
-                        <span className={cn(
-                          "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-tighter",
-                          staff.is_present ? "bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400" : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-500"
-                        )}>
-                          {staff.is_present ? 'Present' : 'Away'}
-                        </span>
-                      </td>
-                      <td className="px-8 py-5 text-right flex items-center justify-end space-x-2">
-                        <button 
-                          onClick={() => toggleStaffPresence(staff.id, staff.is_present)}
-                          className={cn(
-                            "px-4 py-2 rounded-xl text-xs font-bold transition-all",
-                            staff.is_present ? "text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/10" : "text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/10"
-                          )}
-                        >
-                          {staff.is_present ? 'Set Away' : 'Set Present'}
-                        </button>
-                        <button 
-                          onClick={() => deleteStaff(staff.id)}
-                          className="p-2 text-slate-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 transition-colors"
-                          title="Remove Staff"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                  {staffList.length === 0 && (
-                    <tr>
-                      <td colSpan={3} className="px-8 py-12 text-center text-slate-400 dark:text-slate-600 text-xs italic font-medium">
-                        No staff members registered.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </div>
+      {/* Tab Navigation */}
+      <div className="flex bg-slate-100 dark:bg-slate-800/50 p-1.5 rounded-2xl w-fit mx-auto md:mx-0">
+        <button
+          onClick={() => setActiveTab('management')}
+          className={cn(
+            "px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center",
+            activeTab === 'management' 
+              ? "bg-white dark:bg-slate-700 text-brand-blue shadow-lg shadow-brand-blue/5" 
+              : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+          )}
+        >
+          <Settings className="w-3.5 h-3.5 mr-2" />
+          Management
+        </button>
+        <button
+          onClick={() => setActiveTab('reports')}
+          className={cn(
+            "px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center",
+            activeTab === 'reports' 
+              ? "bg-white dark:bg-slate-700 text-brand-blue shadow-lg shadow-brand-blue/5" 
+              : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+          )}
+        >
+          <BarChart3 className="w-3.5 h-3.5 mr-2" />
+          Usage Reports
+        </button>
       </div>
 
-      {/* Reservations Table */}
-      <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-colors">
-        <div className="p-8 pb-4">
-          <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest flex items-center">
-            <Calendar className="w-4 h-4 mr-2 text-brand-green" />
-            Active Reservations
-          </h3>
-        </div>
-        <div className="overflow-auto max-h-[600px]">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 dark:bg-slate-800/50 border-y border-slate-100 dark:border-slate-800 text-[10px] font-bold uppercase text-slate-400 dark:text-slate-500 tracking-widest">
-              <tr>
-                <th className="px-8 py-4">Student</th>
-                <th className="px-8 py-4">Time Slot</th>
-                <th className="px-8 py-4">OTP</th>
-                <th className="px-8 py-4">Status</th>
-                <th className="px-8 py-4 text-right">Management</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 transition-colors">
-              {reservations.map(res => (
-                <tr key={res.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                  <td className="px-8 py-5 font-semibold text-slate-700 dark:text-slate-300 text-sm">{res.name}</td>
-                  <td className="px-8 py-5 text-slate-500 dark:text-slate-500 text-xs font-medium">{res.time}</td>
-                  <td className="px-8 py-5">
-                    <span className="font-mono font-bold text-brand-blue dark:text-brand-green text-base tracking-widest">{res.otp}</span>
-                  </td>
-                  <td className="px-8 py-5">
-                    <span className={cn(
-                      "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-tighter",
-                      res.is_used ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 line-through" : "bg-brand-blue/10 dark:bg-brand-green/20 text-brand-blue dark:text-brand-green"
-                    )}>
-                      {res.is_used ? 'Arrived' : 'Awaiting'}
-                    </span>
-                  </td>
-                  <td className="px-8 py-5 text-right space-x-2">
-                    {!res.is_used && (
-                      <button 
-                        onClick={() => markReservationUsed(res.id)}
-                        className="p-2 text-brand-blue dark:text-brand-green hover:bg-brand-blue/5 dark:hover:bg-brand-green/10 rounded-xl transition-all"
-                        title="Mark as Used"
-                      >
-                        <Save className="w-4 h-4" />
-                      </button>
-                    )}
-                    <button 
-                      onClick={() => deleteReservation(res.id)}
-                      className="p-2 text-red-400 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
-                      title="Cancel Booking"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {reservations.length === 0 && (
+      <AnimatePresence mode="wait">
+        {activeTab === 'management' ? (
+          <motion.div 
+            key="management"
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 10 }}
+            className="grid grid-cols-1 lg:grid-cols-12 gap-8"
+          >
+            {/* Seat Control */}
+            <div className="lg:col-span-4 flex flex-col space-y-8 transition-colors">
+              <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest mb-8 flex items-center">
+                  <Settings className="w-4 h-4 mr-2 text-brand-green" />
+                  Library Capacity
+                </h3>
+                <div className="space-y-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase text-slate-400 dark:text-slate-500 block mb-1.5 tracking-widest ml-1">Total Capacity</label>
+                      <input 
+                        type="number"
+                        value={editCapacity}
+                        onChange={(e) => setEditCapacity(e.target.value)}
+                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-lg font-bold text-slate-700 dark:text-slate-200"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase text-slate-400 dark:text-slate-500 block mb-1.5 tracking-widest ml-1">Manual Occupancy</label>
+                      <input 
+                        type="number"
+                        value={editOccupancy}
+                        onChange={(e) => setEditOccupancy(e.target.value)}
+                        className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-lg font-bold text-slate-700 dark:text-slate-200"
+                      />
+                    </div>
+                  </div>
+                  <button 
+                    onClick={updateStatus}
+                    disabled={isUpdatingStatus}
+                    className="w-full bg-brand-blue text-white font-bold py-4 rounded-2xl shadow-lg shadow-brand-blue/10 dark:shadow-none hover:bg-brand-blue/90 transition-all flex items-center justify-center group disabled:opacity-50"
+                  >
+                    {isUpdatingStatus ? <Loader size="sm" light className="mr-2" /> : <Save className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" /> }
+                    Update Real-time Feed
+                  </button>
+                  
+                  <button 
+                    onClick={resetData}
+                    className="w-full bg-red-50 dark:bg-red-950/20 text-red-600 dark:text-red-400 font-bold py-3 rounded-2xl border border-red-100 dark:border-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/40 transition-all text-xs flex items-center justify-center"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-2" />
+                    Reset System Defaults
+                  </button>
+                </div>
+              </section>
+
+              {/* Add Staff Section */}
+              <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest mb-6 flex items-center">
+                  <Plus className="w-4 h-4 mr-2 text-brand-green" />
+                  Register Staff
+                </h3>
+                <div className="flex gap-3">
+                  <input 
+                    type="text"
+                    placeholder="Full Name"
+                    value={newStaffName}
+                    onChange={(e) => setNewStaffName(e.target.value)}
+                    className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue dark:text-slate-200 transition-all"
+                  />
+                  <button 
+                    onClick={addStaff}
+                    disabled={isAddingStaff}
+                    className="bg-brand-blue/5 dark:bg-brand-blue/30 text-brand-blue dark:text-brand-green px-4 rounded-2xl font-bold text-xs hover:bg-brand-blue hover:text-white transition-all disabled:opacity-50 min-w-[80px] flex items-center justify-center"
+                  >
+                    {isAddingStaff ? <Loader size="sm" /> : 'ADD'}
+                  </button>
+                </div>
+              </section>
+
+              {/* New Announcement Section */}
+              <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
+                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest mb-6 flex items-center">
+                  <Mail className="w-4 h-4 mr-2 text-brand-green" />
+                  Post Announcement
+                </h3>
+                <div className="space-y-4">
+                  <textarea 
+                    rows={3}
+                    placeholder="Type important notice for students..."
+                    value={announcementText}
+                    onChange={(e) => setAnnouncementText(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue dark:text-slate-200 transition-all resize-none"
+                  />
+                  <button 
+                    onClick={addAnnouncement}
+                    disabled={isAddingAnnouncement}
+                    className="w-full bg-brand-blue/5 dark:bg-brand-blue/30 text-brand-blue dark:text-brand-green py-3 rounded-2xl font-bold text-xs hover:bg-brand-blue hover:text-white transition-all disabled:opacity-50 flex items-center justify-center"
+                  >
+                    {isAddingAnnouncement ? <Loader size="sm" /> : 'POST NOTICE'}
+                  </button>
+                </div>
+
+                {announcements.length > 0 && (
+                  <div className="mt-8 space-y-4">
+                    <p className="text-[10px] font-bold uppercase text-slate-400 tracking-widest">Active Notices</p>
+                    <div className="space-y-3">
+                      {announcements.map(ann => (
+                        <div key={ann.id} className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 relative group">
+                          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed pr-6">{ann.text}</p>
+                          <button 
+                            onClick={() => deleteAnnouncement(ann.id)}
+                            className="absolute top-2 right-2 p-1 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </section>
+            </div>
+
+            {/* Staff Table */}
+            <div className="lg:col-span-8">
+              <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden h-full flex flex-col transition-colors">
+                <div className="p-8 pb-4">
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest flex items-center">
+                    <Users className="w-4 h-4 mr-2 text-brand-green" />
+                    Personnel Management
+                  </h3>
+                </div>
+                <div className="flex-1 overflow-auto">
+                  <table className="w-full text-left">
+                    <thead className="bg-slate-50 dark:bg-slate-800/50 border-y border-slate-100 dark:border-slate-800 text-[10px] font-bold uppercase text-slate-400 dark:text-slate-500 tracking-widest">
+                      <tr>
+                        <th className="px-8 py-4">Name</th>
+                        <th className="px-8 py-4">Status</th>
+                        <th className="px-8 py-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {staffList.map(staff => (
+                        <tr key={staff.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                          <td className="px-8 py-5">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 font-bold text-xs">
+                                {staff.name.split(' ').map(n => n[0]).join('')}
+                              </div>
+                              <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{staff.name}</span>
+                            </div>
+                          </td>
+                          <td className="px-8 py-5">
+                            <span className={cn(
+                              "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-tighter",
+                              staff.is_present ? "bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400" : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-500"
+                            )}>
+                              {staff.is_present ? 'Present' : 'Away'}
+                            </span>
+                          </td>
+                          <td className="px-8 py-5 text-right flex items-center justify-end space-x-2">
+                            <button 
+                              onClick={() => toggleStaffPresence(staff.id, staff.is_present)}
+                              className={cn(
+                                "px-4 py-2 rounded-xl text-xs font-bold transition-all",
+                                staff.is_present ? "text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/10" : "text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/10"
+                              )}
+                            >
+                              {staff.is_present ? 'Set Away' : 'Set Present'}
+                            </button>
+                            <button 
+                              onClick={() => deleteStaff(staff.id)}
+                              className="p-2 text-slate-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 transition-colors"
+                              title="Remove Staff"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {staffList.length === 0 && (
+                        <tr>
+                          <td colSpan={3} className="px-8 py-12 text-center text-slate-400 dark:text-slate-600 text-xs italic font-medium">
+                            No staff members registered.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="reports"
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -10 }}
+            className="space-y-8"
+          >
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2">Peak Occupancy</p>
+                <div className="flex items-end justify-between">
+                  <p className="text-3xl font-black text-slate-800 dark:text-white">
+                    {Math.max(...historyData.map(h => h.occupancy), 0)}
+                  </p>
+                  <TrendingUp className="w-8 h-8 text-brand-green opacity-20" />
+                </div>
+              </div>
+              <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2">Avg. Occupancy</p>
+                <div className="flex items-end justify-between">
+                  <p className="text-3xl font-black text-slate-800 dark:text-white">
+                    {historyData.length > 0 
+                      ? Math.round(historyData.reduce((acc, curr) => acc + curr.occupancy, 0) / historyData.length)
+                      : 0}
+                  </p>
+                  <BarChart3 className="w-8 h-8 text-brand-blue opacity-20" />
+                </div>
+              </div>
+              <div className="bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-2">Total Samples</p>
+                <div className="flex items-end justify-between">
+                  <p className="text-3xl font-black text-slate-800 dark:text-white">{historyData.length}</p>
+                  <PieChart className="w-8 h-8 text-brand-blue opacity-20" />
+                </div>
+              </div>
+            </div>
+
+            <section className="bg-white dark:bg-slate-900 rounded-[40px] border border-slate-200 dark:border-slate-800 p-10 shadow-sm overflow-hidden min-h-[500px]">
+              <div className="flex flex-col md:flex-row md:items-center justify-between mb-12">
+                <div>
+                  <h3 className="text-2xl font-black text-slate-800 dark:text-white tracking-tight">Occupancy Trends</h3>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mt-1">Real-time usage analysis for the last 24 recorded points</p>
+                </div>
+                <div className="mt-4 md:mt-0 flex gap-2">
+                  <span className="px-3 py-1.5 bg-brand-blue/10 text-brand-blue text-[10px] font-black uppercase tracking-widest rounded-full border border-brand-blue/20">Daily View</span>
+                  <span className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 text-slate-400 text-[10px] font-black uppercase tracking-widest rounded-full border border-slate-100 dark:border-slate-800">Weekly</span>
+                </div>
+              </div>
+
+              <div className="h-[400px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={historyData}>
+                    <defs>
+                      <linearGradient id="colorOcc" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#2D60FF" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#2D60FF" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                    <XAxis 
+                      dataKey="timestamp" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 700 }}
+                      dy={10}
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{ fill: '#94A3B8', fontSize: 10, fontWeight: 700 }}
+                      dx={-10}
+                    />
+                    <Tooltip 
+                      contentStyle={{ 
+                        borderRadius: '16px', 
+                        border: 'none', 
+                        boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+                        backgroundColor: '#FFF'
+                      }}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="occupancy" 
+                      stroke="#2D60FF" 
+                      strokeWidth={4} 
+                      fillOpacity={1} 
+                      fill="url(#colorOcc)" 
+                      animationDuration={1500}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </section>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Reservations Table (Visible only in management) */}
+      {activeTab === 'management' && (
+        <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-colors">
+          <div className="p-8 pb-4">
+            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest flex items-center">
+              <Calendar className="w-4 h-4 mr-2 text-brand-green" />
+              Active Reservations
+            </h3>
+          </div>
+          <div className="overflow-auto max-h-[600px]">
+            <table className="w-full text-left">
+              <thead className="bg-slate-50 dark:bg-slate-800/50 border-y border-slate-100 dark:border-slate-800 text-[10px] font-bold uppercase text-slate-400 dark:text-slate-500 tracking-widest">
                 <tr>
-                  <td colSpan={5} className="px-8 py-12 text-center text-slate-400 dark:text-slate-600 text-xs italic font-medium">
-                    No active reservations found.
-                  </td>
+                  <th className="px-8 py-4">Student</th>
+                  <th className="px-8 py-4">Time Slot</th>
+                  <th className="px-8 py-4">OTP</th>
+                  <th className="px-8 py-4">Status</th>
+                  <th className="px-8 py-4 text-right">Management</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 transition-colors">
+                {reservations.map(res => (
+                  <tr key={res.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                    <td className="px-8 py-5 font-semibold text-slate-700 dark:text-slate-300 text-sm">{res.name}</td>
+                    <td className="px-8 py-5 text-slate-500 dark:text-slate-500 text-xs font-medium">{res.time}</td>
+                    <td className="px-8 py-5">
+                      <span className="font-mono font-bold text-brand-blue dark:text-brand-green text-base tracking-widest">{res.otp}</span>
+                    </td>
+                    <td className="px-8 py-5">
+                      <span className={cn(
+                        "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-tighter",
+                        res.is_used ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 line-through" : "bg-brand-blue/10 dark:bg-brand-green/20 text-brand-blue dark:text-brand-green"
+                      )}>
+                        {res.is_used ? 'Arrived' : 'Awaiting'}
+                      </span>
+                    </td>
+                    <td className="px-8 py-5 text-right space-x-2">
+                      {!res.is_used && (
+                        <button 
+                          onClick={() => markReservationUsed(res.id)}
+                          className="p-2 text-brand-blue dark:text-brand-green hover:bg-brand-blue/5 dark:hover:bg-brand-green/10 rounded-xl transition-all"
+                          title="Mark as Used"
+                        >
+                          <Save className="w-4 h-4" />
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => deleteReservation(res.id)}
+                        className="p-2 text-red-400 dark:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
+                        title="Cancel Booking"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {reservations.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-8 py-12 text-center text-slate-400 dark:text-slate-600 text-xs italic font-medium">
+                      No active reservations found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       {/* Confirmation Dialog */}
       <AnimatePresence>
