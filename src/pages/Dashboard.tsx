@@ -252,7 +252,7 @@ export function Dashboard() {
                     {ann.text}
                   </p>
                   <p className="text-[9px] font-bold text-slate-400 dark:text-slate-600 mt-2 uppercase tracking-widest">
-                    {new Date(ann.createdAt).toLocaleDateString()} at {new Date(ann.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {new Date(ann.createdAt).toLocaleDateString('en-LK', { timeZone: 'Asia/Colombo' })} at {new Date(ann.createdAt).toLocaleTimeString('en-LK', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Colombo' })}
                   </p>
                 </div>
               ))}
