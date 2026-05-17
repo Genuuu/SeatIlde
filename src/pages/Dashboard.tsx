@@ -31,17 +31,14 @@ interface Reservation {
 export function Dashboard() {
   const { user } = useAuth();
   
-  // Local State (Mocking Database)
+  // Local State (Empty Defaults)
   const [status, setStatus] = useState<LibraryStatus>({
     capacity: 50,
-    occupancy: 12,
+    occupancy: 0,
     system_online: true
   });
   
-  const [staffList, setStaffList] = useState<Staff[]>([
-    { id: '1', name: 'Mr. Perera', is_present: true },
-    { id: '2', name: 'Ms. Silva', is_present: false }
-  ]);
+  const [staffList, setStaffList] = useState<Staff[]>([]);
   
   const [reservations, setReservations] = useState<Reservation[]>([]);
   
@@ -134,11 +131,25 @@ export function Dashboard() {
     e.preventDefault();
     setIsAuthenticating(true);
     setAuthError(null);
+    const email = studentEmail.toLowerCase() === 'admin' ? 'admin@seatidle.com' : studentEmail;
     try {
       if (authMode === 'login') {
-        await signInWithEmailAndPassword(auth, studentEmail, studentPassword);
+        try {
+          await signInWithEmailAndPassword(auth, email, studentPassword);
+        } catch (err: any) {
+          // Auto-create Admin if it's the special credentials and it's missing
+          if (
+            (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-login-credentials') && 
+            email === 'admin@seatidle.com' && 
+            studentPassword === 'admin123'
+          ) {
+            await createUserWithEmailAndPassword(auth, email, studentPassword);
+          } else {
+            throw err;
+          }
+        }
       } else {
-        await createUserWithEmailAndPassword(auth, studentEmail, studentPassword);
+        await createUserWithEmailAndPassword(auth, email, studentPassword);
       }
       setShowAuth(false);
     } catch (err: any) {
@@ -308,11 +319,11 @@ export function Dashboard() {
                     <div className="relative">
                       <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/40" />
                       <input 
-                        type="email" 
+                        type="text" 
                         required
                         value={studentEmail}
                         onChange={(e) => setStudentEmail(e.target.value)}
-                        placeholder="University Email"
+                        placeholder="Admin or University Email"
                         className="w-full bg-white/10 border border-white/20 rounded-xl pl-10 pr-4 py-2.5 text-xs placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-400"
                       />
                     </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, FormEvent } from 'react';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'motion/react';
@@ -38,21 +38,18 @@ export function Admin() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // Database State (Mocking with localStorage)
+  // Database State (Empty Defaults)
   const [status, setStatus] = useState<LibraryStatus>({
-    capacity: 50,
-    occupancy: 12,
+    capacity: 0,
+    occupancy: 0,
     system_online: true
   });
-  const [staffList, setStaffList] = useState<Staff[]>([
-    { id: '1', name: 'Mr. Perera', is_present: true },
-    { id: '2', name: 'Ms. Silva', is_present: false }
-  ]);
+  const [staffList, setStaffList] = useState<Staff[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
 
   // Edit State
-  const [editCapacity, setEditCapacity] = useState('50');
-  const [editOccupancy, setEditOccupancy] = useState('12');
+  const [editCapacity, setEditCapacity] = useState('0');
+  const [editOccupancy, setEditOccupancy] = useState('0');
   const [newStaffName, setNewStaffName] = useState('');
 
   // Load and Persist
@@ -83,9 +80,24 @@ export function Admin() {
     e.preventDefault();
     setIsLoggingIn(true);
     setAuthError(null);
+    const targetEmail = email.toLowerCase() === 'admin' ? 'admin@seatidle.com' : email;
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(auth, targetEmail, password);
     } catch (err: any) {
+      // Auto-create Admin account if requested credentials are the standard Admin/admin123
+      if (
+        (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/invalid-login-credentials') && 
+        targetEmail === 'admin@seatidle.com' && 
+        password === 'admin123'
+      ) {
+        try {
+          await createUserWithEmailAndPassword(auth, 'admin@seatidle.com', 'admin123');
+          return;
+        } catch (createErr: any) {
+          setAuthError(createErr.message);
+          return;
+        }
+      }
       setAuthError(err.message || 'Failed to login');
     } finally {
       setIsLoggingIn(false);
@@ -175,16 +187,16 @@ export function Admin() {
           <form onSubmit={handleLogin} className="p-8 space-y-6">
             <div className="space-y-4">
               <div>
-                <label className="text-[10px] font-bold uppercase text-slate-400 dark:text-slate-500 block mb-1.5 tracking-widest ml-1">Email Address</label>
+                <label className="text-[10px] font-bold uppercase text-slate-400 dark:text-slate-500 block mb-1.5 tracking-widest ml-1">Username / Email</label>
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <input 
-                    type="email" 
+                    type="text" 
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 dark:focus:bg-slate-800 dark:text-slate-200 transition-all"
-                    placeholder="name@library.com"
+                    placeholder="Admin or name@library.com"
                   />
                 </div>
               </div>
