@@ -63,9 +63,18 @@ export function Layout() {
         <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium tracking-wide uppercase">© 2026 SeatIdle IoT Systems • v1.0.4-stable</p>
         <div className="flex items-center space-x-6">
           {user ? (
-            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest flex items-center">
-              Student ID: {user.email?.split('@')[0]}
-            </span>
+            <div className="flex items-center space-x-4">
+              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-600 uppercase tracking-widest">
+                ID: {user.email?.split('@')[0]}
+              </span>
+              <button 
+                onClick={() => auth.signOut()}
+                className="text-[10px] font-bold text-red-500/70 hover:text-red-500 dark:text-red-400/70 dark:hover:text-red-400 uppercase tracking-widest flex items-center transition-colors px-2 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/10"
+              >
+                <LogOut className="w-3 h-3 mr-1.5" />
+                Logout
+              </button>
+            </div>
           ) : (
             location.pathname !== '/admin' && (
               <Link to="/admin" className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest flex items-center hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors">
