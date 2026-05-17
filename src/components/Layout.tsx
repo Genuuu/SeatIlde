@@ -5,6 +5,7 @@ import { auth } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { cn } from '../lib/utils';
+import { Logo } from './Logo';
 
 export function Layout() {
   const [time, setTime] = useState(new Date());
@@ -30,12 +31,8 @@ export function Layout() {
       {/* Header */}
       <header className="flex items-center justify-between px-8 py-6 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 transition-colors">
         <div className="flex items-center space-x-3">
-          <Link to="/" className="flex items-center space-x-3 group">
-            <div className={cn(
-              "w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-lg",
-              theme === 'dark' ? "shadow-indigo-900/50" : "shadow-indigo-200/50"
-            )}>S</div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-800 dark:text-slate-100">SeatIdle<span className="text-indigo-600 dark:text-indigo-400 text-sm align-top ml-1">™</span></h1>
+          <Link to="/" className="group">
+            <Logo />
           </Link>
         </div>
         
@@ -83,7 +80,7 @@ export function Layout() {
             </div>
           ) : (
             location.pathname !== '/admin' && (
-              <Link to="/admin" className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest flex items-center hover:text-indigo-800 dark:hover:text-indigo-300 transition-colors">
+              <Link to="/admin" className="text-[10px] font-bold text-brand-blue dark:text-brand-green uppercase tracking-widest flex items-center hover:opacity-80 transition-opacity">
                 Admin Access
                 <ShieldCheck className="w-3 h-3 ml-1" />
               </Link>

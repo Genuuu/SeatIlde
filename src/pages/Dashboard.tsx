@@ -189,8 +189,8 @@ export function Dashboard() {
     <div className="max-w-[1400px] mx-auto p-4 md:p-8 grid grid-cols-1 md:grid-cols-12 gap-6 md:gap-8">
       {/* Left Panel: Live Availability Hero */}
       <section className="col-span-1 md:col-span-12 lg:col-span-7 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col items-center justify-center relative overflow-hidden p-8 md:p-12 min-h-[450px] md:min-h-[500px] transition-colors">
-        <div className="absolute top-0 left-0 w-full h-1 bg-indigo-600"></div>
-        <div className="absolute -right-20 -bottom-20 w-80 h-80 bg-indigo-50 dark:bg-indigo-900/10 rounded-full opacity-50 blur-3xl"></div>
+        <div className="absolute top-0 left-0 w-full h-1 bg-brand-blue"></div>
+        <div className="absolute -right-20 -bottom-20 w-80 h-80 bg-brand-blue/5 dark:bg-brand-blue/10 rounded-full opacity-50 blur-3xl"></div>
         
         <p className="text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-[0.2em] text-xs md:sm mb-6 z-10 transition-colors">Currently Available</p>
         
@@ -199,7 +199,7 @@ export function Dashboard() {
             key={availableSeats}
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="text-[120px] md:text-[180px] font-black leading-none text-indigo-600 dark:text-indigo-500 tracking-tighter transition-colors"
+            className="text-[120px] md:text-[180px] font-black leading-none text-brand-blue dark:text-brand-blue tracking-tighter transition-colors"
           >
             {availableSeats}
           </motion.span>
@@ -219,7 +219,7 @@ export function Dashboard() {
               animate={{ width: `${occupancyPercent}%` }}
               className={cn(
                 "h-full rounded-full transition-all duration-500",
-                occupancyPercent > 90 ? "bg-red-500" : occupancyPercent > 70 ? "bg-amber-500" : "bg-indigo-600"
+                occupancyPercent > 90 ? "bg-red-500" : occupancyPercent > 70 ? "bg-amber-500" : "bg-brand-green"
               )}
             ></motion.div>
           </div>
@@ -277,7 +277,7 @@ export function Dashboard() {
         {/* Staff Section */}
         <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 md:p-8 shadow-sm flex-1 transition-colors">
           <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-6 flex items-center">
-            <Users className="w-4 h-4 mr-2 text-indigo-500" />
+            <Users className="w-4 h-4 mr-2 text-brand-green" />
             Staff On Duty
           </h3>
           <div className="space-y-4">
@@ -291,7 +291,7 @@ export function Dashboard() {
                   className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 transition-colors"
                 >
                   <div className="flex items-center space-x-4">
-                    <div className="w-10 h-10 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-700 dark:text-indigo-400 font-bold text-sm">
+                    <div className="w-10 h-10 rounded-full bg-brand-blue/10 dark:bg-brand-blue/30 flex items-center justify-center text-brand-blue dark:text-slate-200 font-bold text-sm">
                       {staff.name.split(' ').map(n => n[0]).join('')}
                     </div>
                     <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">{staff.name}</span>
@@ -308,11 +308,11 @@ export function Dashboard() {
         </section>
 
         {/* Reservation Section */}
-        <section className="bg-indigo-900 dark:bg-indigo-950 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden transition-colors">
+        <section className="bg-brand-blue dark:bg-brand-blue/90 rounded-3xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden transition-colors">
           <div className="absolute -right-12 -top-12 w-32 h-32 bg-white/5 rounded-full"></div>
-          <div className="absolute -left-6 -bottom-6 w-24 h-24 bg-indigo-400/10 rounded-full blur-xl"></div>
+          <div className="absolute -left-6 -bottom-6 w-24 h-24 bg-brand-green/10 rounded-full blur-xl"></div>
           
-          <h3 className="text-sm font-bold uppercase tracking-wider mb-6 flex items-center text-indigo-200">
+          <h3 className="text-sm font-bold uppercase tracking-wider mb-6 flex items-center text-brand-green">
             <Calendar className="w-4 h-4 mr-2" />
             Quick Reservation
           </h3>
@@ -330,9 +330,9 @@ export function Dashboard() {
                   <CheckCircle2 className="w-6 h-6 text-white" />
                 </div>
                 <h4 className="text-lg font-bold mb-1 uppercase tracking-tight">Booking Confirmed!</h4>
-                <p className="text-indigo-200 text-xs mb-4">Show your OTP at the entrance</p>
+                <p className="text-brand-green text-xs mb-4">Show your OTP at the entrance</p>
                 <div className="bg-white px-6 py-3 rounded-xl inline-block shadow-lg">
-                  <span className="text-3xl font-mono font-black text-indigo-900 tracking-[0.4em]">{bookingSuccess}</span>
+                  <span className="text-3xl font-mono font-black text-brand-blue tracking-[0.4em]">{bookingSuccess}</span>
                 </div>
               </motion.div>
             ) : !user || showAuth ? (
@@ -343,7 +343,7 @@ export function Dashboard() {
                 className="space-y-4"
               >
                 <div className="bg-white/10 p-4 rounded-2xl border border-white/20 text-center">
-                  <p className="text-xs font-medium text-indigo-200 mb-3">
+                  <p className="text-xs font-medium text-brand-green mb-3">
                     Unlock reservations by creating a student account.
                   </p>
                   <div className="flex bg-white/10 rounded-xl p-1 mb-4">
@@ -351,7 +351,7 @@ export function Dashboard() {
                       onClick={() => setAuthMode('login')}
                       className={cn(
                         "flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all",
-                        authMode === 'login' ? "bg-white text-indigo-900 shadow-sm" : "text-white/60 hover:text-white"
+                        authMode === 'login' ? "bg-white text-brand-blue shadow-sm" : "text-white/60 hover:text-white"
                       )}
                     >
                       Login
@@ -360,7 +360,7 @@ export function Dashboard() {
                       onClick={() => setAuthMode('signup')}
                       className={cn(
                         "flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all",
-                        authMode === 'signup' ? "bg-white text-indigo-900 shadow-sm" : "text-white/60 hover:text-white"
+                        authMode === 'signup' ? "bg-white text-brand-blue shadow-sm" : "text-white/60 hover:text-white"
                       )}
                     >
                       Sign Up
@@ -376,7 +376,7 @@ export function Dashboard() {
                         value={studentEmail}
                         onChange={(e) => setStudentEmail(e.target.value)}
                         placeholder="Admin or University Email"
-                        className="w-full bg-white/10 border border-white/20 rounded-xl pl-10 pr-4 py-2.5 text-xs placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                        className="w-full bg-white/10 border border-white/20 rounded-xl pl-10 pr-4 py-2.5 text-xs placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-brand-green"
                       />
                     </div>
                     <div className="relative">
@@ -387,13 +387,13 @@ export function Dashboard() {
                         value={studentPassword}
                         onChange={(e) => setStudentPassword(e.target.value)}
                         placeholder="Password"
-                        className="w-full bg-white/10 border border-white/20 rounded-xl pl-10 pr-4 py-2.5 text-xs placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                        className="w-full bg-white/10 border border-white/20 rounded-xl pl-10 pr-4 py-2.5 text-xs placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-brand-green"
                       />
                     </div>
                     {authError && <p className="text-red-400 text-[10px] font-medium">{authError}</p>}
                     <button 
                       disabled={isAuthenticating}
-                      className="w-full bg-white text-indigo-900 font-bold py-3 rounded-xl text-xs transition-all hover:bg-indigo-50 active:scale-[0.98] flex items-center justify-center"
+                      className="w-full bg-white text-brand-blue font-bold py-3 rounded-xl text-xs transition-all hover:bg-brand-green hover:text-white active:scale-[0.98] flex items-center justify-center"
                     >
                       {authMode === 'login' ? <LogIn className="w-3.5 h-3.5 mr-2" /> : <UserPlus className="w-3.5 h-3.5 mr-2" />}
                       {isAuthenticating ? 'Working...' : authMode === 'login' ? 'Access Account' : 'Create Account'}
@@ -403,7 +403,7 @@ export function Dashboard() {
                       <div className="absolute inset-0 flex items-center">
                         <div className="w-full border-t border-white/10"></div>
                       </div>
-                      <div className="relative flex justify-center text-[9px] uppercase font-bold text-white/40 tracking-widest bg-indigo-900 dark:bg-indigo-950 px-3">
+                      <div className="relative flex justify-center text-[9px] uppercase font-bold text-white/40 tracking-widest bg-brand-blue px-3">
                         Or
                       </div>
                     </div>
@@ -434,23 +434,23 @@ export function Dashboard() {
                 className="space-y-5"
               >
                 <div>
-                  <label className="text-[10px] font-bold uppercase text-indigo-300 block mb-1.5 tracking-widest ml-1">Student Name</label>
+                  <label className="text-[10px] font-bold uppercase text-brand-green block mb-1.5 tracking-widest ml-1">Student Name</label>
                   <input 
                     type="text" 
                     required
                     value={bookingName}
                     onChange={(e) => setBookingName(e.target.value)}
                     placeholder="Enter full name" 
-                    className="w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-3.5 text-sm placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-all"
+                    className="w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-3.5 text-sm placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-brand-green transition-all"
                   />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-[10px] font-bold uppercase text-indigo-300 block mb-1.5 tracking-widest ml-1">Time Slot</label>
+                    <label className="text-[10px] font-bold uppercase text-brand-green block mb-1.5 tracking-widest ml-1">Time Slot</label>
                     <select 
                       value={bookingSlot}
                       onChange={(e) => setBookingSlot(e.target.value)}
-                      className="w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 appearance-none cursor-pointer"
+                      className="w-full bg-white/10 border border-white/20 rounded-2xl px-5 py-3.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-green appearance-none cursor-pointer"
                     >
                       <option className="text-slate-800" value="08:00 - 10:00">08:00 - 10:00</option>
                       <option className="text-slate-800" value="10:00 - 12:00">10:00 - 12:00</option>
@@ -463,7 +463,7 @@ export function Dashboard() {
                     <button 
                       disabled={isBooking}
                       className={cn(
-                        "w-full bg-white text-indigo-900 font-bold py-3.5 rounded-2xl text-sm transition-all hover:shadow-lg hover:shadow-white/10 active:scale-[0.98] disabled:opacity-50",
+                        "w-full bg-white text-brand-blue font-bold py-3.5 rounded-2xl text-sm transition-all hover:bg-brand-green hover:text-white hover:shadow-lg active:scale-[0.98] disabled:opacity-50",
                       )}
                     >
                       {isBooking ? 'Processing...' : 'Book Spot'}
@@ -480,7 +480,7 @@ export function Dashboard() {
               animate={{ opacity: 1 }}
               className="mt-8 pt-8 border-t border-white/10"
             >
-              <h4 className="text-[10px] font-bold uppercase text-indigo-300 mb-4 tracking-widest flex items-center">
+              <h4 className="text-[10px] font-bold uppercase text-brand-green mb-4 tracking-widest flex items-center">
                 <Calendar className="w-3.5 h-3.5 mr-2" />
                 My Active Bookings
               </h4>
@@ -490,7 +490,7 @@ export function Dashboard() {
                     <div key={res.id} className="bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center justify-between">
                       <div>
                         <p className="text-xs font-bold text-white">{res.time}</p>
-                        <p className="text-[10px] text-indigo-300 font-mono tracking-widest mt-1">OTP: {res.otp}</p>
+                        <p className="text-[10px] text-brand-green font-mono tracking-widest mt-1">OTP: {res.otp}</p>
                       </div>
                       <button 
                         onClick={() => {
@@ -508,7 +508,7 @@ export function Dashboard() {
                     </div>
                   ))
                 ) : (
-                  <p className="text-[10px] text-indigo-400 italic">No active bookings found.</p>
+                  <p className="text-[10px] text-brand-green/60 italic">No active bookings found.</p>
                 )}
               </div>
             </motion.div>
@@ -516,8 +516,8 @@ export function Dashboard() {
 
           {(!bookingSuccess && user) && (
              <div className="mt-8 flex items-start space-x-3 bg-white/5 p-4 rounded-2xl border border-white/5">
-              <AlertCircle className="w-5 h-5 text-indigo-300 flex-shrink-0 mt-0.5" />
-              <p className="text-[11px] text-indigo-200 leading-relaxed font-medium">
+              <AlertCircle className="w-5 h-5 text-brand-green flex-shrink-0 mt-0.5" />
+              <p className="text-[11px] text-white/80 leading-relaxed font-medium">
                 Note: Reservations are restricted to University members. Please ensure you are logged in correctly.
               </p>
             </div>

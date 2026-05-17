@@ -2,8 +2,8 @@ import { useState, useEffect, FormEvent } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
-import { motion } from 'motion/react';
-import { Settings, Users, Calendar, Plus, Trash2, LogIn, Lock, Mail, Save } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Settings, Users, Calendar, Plus, Trash2, LogIn, Lock, Mail, Save, AlertTriangle } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 // Types
@@ -59,6 +59,7 @@ export function Admin() {
   const [editOccupancy, setEditOccupancy] = useState('0');
   const [newStaffName, setNewStaffName] = useState('');
   const [announcementText, setAnnouncementText] = useState('');
+  const [showResetDialog, setShowResetDialog] = useState(false);
 
   // Load and Persist
   useEffect(() => {
@@ -207,14 +208,16 @@ export function Admin() {
     saveToStorage('announcements', updated);
   };
 
+  const confirmReset = () => {
+    localStorage.removeItem('seatidle_status');
+    localStorage.removeItem('seatidle_staff');
+    localStorage.removeItem('seatidle_reservations');
+    localStorage.removeItem('seatidle_announcements');
+    window.location.reload();
+  };
+
   const resetData = () => {
-    if (confirm('DANGER: This will wipe all staff and reservations. Reset to factory defaults?')) {
-      localStorage.removeItem('seatidle_status');
-      localStorage.removeItem('seatidle_staff');
-      localStorage.removeItem('seatidle_reservations');
-      localStorage.removeItem('seatidle_announcements');
-      window.location.reload();
-    }
+    setShowResetDialog(true);
   };
 
   const ALLOWED_ADMINS = ['admin@seatidle.com', 'genukakisara@gmail.com'];
@@ -228,14 +231,14 @@ export function Admin() {
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden shadow-indigo-100 dark:shadow-none transition-colors"
+          className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden shadow-brand-blue/5 dark:shadow-none transition-colors"
         >
-          <div className="bg-indigo-600 p-8 text-white">
+          <div className="bg-brand-blue p-8 text-white">
             <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-4 backdrop-blur-sm">
               <Lock className="w-6 h-6" />
             </div>
             <h2 className="text-2xl font-bold tracking-tight">Admin Portal</h2>
-            <p className="text-indigo-100 text-sm mt-1 font-medium">Authorized personnel only</p>
+            <p className="text-brand-green text-sm mt-1 font-medium italic">Authorized personnel only</p>
           </div>
           
           <form onSubmit={handleLogin} className="p-8 space-y-6">
@@ -254,7 +257,7 @@ export function Admin() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 dark:focus:bg-slate-800 dark:text-slate-200 transition-all"
+                    className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue dark:focus:bg-slate-800 dark:text-slate-200 transition-all"
                     placeholder="Admin or name@library.com"
                   />
                 </div>
@@ -268,7 +271,7 @@ export function Admin() {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 dark:focus:bg-slate-800 dark:text-slate-200 transition-all"
+                    className="w-full pl-12 pr-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue dark:focus:bg-slate-800 dark:text-slate-200 transition-all"
                     placeholder="••••••••"
                   />
                 </div>
@@ -283,7 +286,7 @@ export function Admin() {
 
             <button 
               disabled={isLoggingIn}
-              className="w-full bg-indigo-600 text-white font-bold py-4 rounded-2xl shadow-lg shadow-indigo-200 dark:shadow-none hover:bg-indigo-700 active:scale-[0.98] transition-all flex items-center justify-center disabled:opacity-50"
+              className="w-full bg-brand-blue text-white font-bold py-4 rounded-2xl shadow-lg shadow-brand-blue/10 dark:shadow-none hover:bg-brand-blue/90 active:scale-[0.98] transition-all flex items-center justify-center disabled:opacity-50"
             >
               <LogIn className="w-4 h-4 mr-2" />
               {isLoggingIn ? 'Verifying...' : 'Access Dashboard'}
@@ -326,7 +329,7 @@ export function Admin() {
         <div className="lg:col-span-4 flex flex-col space-y-8 transition-colors">
           <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
             <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest mb-8 flex items-center">
-              <Settings className="w-4 h-4 mr-2 text-indigo-500" />
+              <Settings className="w-4 h-4 mr-2 text-brand-green" />
               Library Capacity
             </h3>
             <div className="space-y-6">
@@ -352,7 +355,7 @@ export function Admin() {
               </div>
               <button 
                 onClick={updateStatus}
-                className="w-full bg-indigo-600 text-white font-bold py-4 rounded-2xl shadow-lg shadow-indigo-100 dark:shadow-none hover:bg-indigo-700 transition-all flex items-center justify-center group"
+                className="w-full bg-brand-blue text-white font-bold py-4 rounded-2xl shadow-lg shadow-brand-blue/10 dark:shadow-none hover:bg-brand-blue/90 transition-all flex items-center justify-center group"
               >
                 <Save className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
                 Update Real-time Feed
@@ -371,7 +374,7 @@ export function Admin() {
           {/* Add Staff Section */}
           <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
             <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest mb-6 flex items-center">
-              <Plus className="w-4 h-4 mr-2 text-indigo-500" />
+              <Plus className="w-4 h-4 mr-2 text-brand-green" />
               Register Staff
             </h3>
             <div className="flex gap-3">
@@ -380,11 +383,11 @@ export function Admin() {
                 placeholder="Full Name"
                 value={newStaffName}
                 onChange={(e) => setNewStaffName(e.target.value)}
-                className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 dark:text-slate-200 transition-all"
+                className="flex-1 px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue dark:text-slate-200 transition-all"
               />
               <button 
                 onClick={addStaff}
-                className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-4 rounded-2xl font-bold text-xs hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all"
+                className="bg-brand-blue/5 dark:bg-brand-blue/30 text-brand-blue dark:text-brand-green px-4 rounded-2xl font-bold text-xs hover:bg-brand-blue hover:text-white transition-all"
               >
                 ADD
               </button>
@@ -394,7 +397,7 @@ export function Admin() {
           {/* New Announcement Section */}
           <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
             <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest mb-6 flex items-center">
-              <Mail className="w-4 h-4 mr-2 text-indigo-500" />
+              <Mail className="w-4 h-4 mr-2 text-brand-green" />
               Post Announcement
             </h3>
             <div className="space-y-4">
@@ -403,11 +406,11 @@ export function Admin() {
                 placeholder="Type important notice for students..."
                 value={announcementText}
                 onChange={(e) => setAnnouncementText(e.target.value)}
-                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 dark:text-slate-200 transition-all resize-none"
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-blue dark:text-slate-200 transition-all resize-none"
               />
               <button 
                 onClick={addAnnouncement}
-                className="w-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 py-3 rounded-2xl font-bold text-xs hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all"
+                className="w-full bg-brand-blue/5 dark:bg-brand-blue/30 text-brand-blue dark:text-brand-green py-3 rounded-2xl font-bold text-xs hover:bg-brand-blue hover:text-white transition-all"
               >
                 POST NOTICE
               </button>
@@ -439,7 +442,7 @@ export function Admin() {
           <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden h-full flex flex-col transition-colors">
             <div className="p-8 pb-4">
               <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest flex items-center">
-                <Users className="w-4 h-4 mr-2 text-indigo-500" />
+                <Users className="w-4 h-4 mr-2 text-brand-green" />
                 Personnel Management
               </h3>
             </div>
@@ -509,7 +512,7 @@ export function Admin() {
       <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden transition-colors">
         <div className="p-8 pb-4">
           <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest flex items-center">
-            <Calendar className="w-4 h-4 mr-2 text-indigo-500" />
+            <Calendar className="w-4 h-4 mr-2 text-brand-green" />
             Active Reservations
           </h3>
         </div>
@@ -530,12 +533,12 @@ export function Admin() {
                   <td className="px-8 py-5 font-semibold text-slate-700 dark:text-slate-300 text-sm">{res.name}</td>
                   <td className="px-8 py-5 text-slate-500 dark:text-slate-500 text-xs font-medium">{res.time}</td>
                   <td className="px-8 py-5">
-                    <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400 text-base tracking-widest">{res.otp}</span>
+                    <span className="font-mono font-bold text-brand-blue dark:text-brand-green text-base tracking-widest">{res.otp}</span>
                   </td>
                   <td className="px-8 py-5">
                     <span className={cn(
                       "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-tighter",
-                      res.is_used ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 line-through" : "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400"
+                      res.is_used ? "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 line-through" : "bg-brand-blue/10 dark:bg-brand-green/20 text-brand-blue dark:text-brand-green"
                     )}>
                       {res.is_used ? 'Arrived' : 'Awaiting'}
                     </span>
@@ -544,7 +547,7 @@ export function Admin() {
                     {!res.is_used && (
                       <button 
                         onClick={() => markReservationUsed(res.id)}
-                        className="p-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl transition-all"
+                        className="p-2 text-brand-blue dark:text-brand-green hover:bg-brand-blue/5 dark:hover:bg-brand-green/10 rounded-xl transition-all"
                         title="Mark as Used"
                       >
                         <Save className="w-4 h-4" />
@@ -571,6 +574,49 @@ export function Admin() {
           </table>
         </div>
       </section>
+
+      {/* Confirmation Dialog */}
+      <AnimatePresence>
+        {showResetDialog && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowResetDialog(false)}
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
+            ></motion.div>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative bg-white dark:bg-slate-900 rounded-[32px] border border-slate-200 dark:border-slate-800 p-8 md:p-10 max-w-md w-full shadow-2xl"
+            >
+              <div className="w-20 h-20 bg-red-50 dark:bg-red-950/30 rounded-3xl flex items-center justify-center mb-8 mx-auto rotate-12">
+                <AlertTriangle className="w-10 h-10 text-red-500 -rotate-12" />
+              </div>
+              <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 text-center mb-4 tracking-tight">Factory Reset System?</h3>
+              <p className="text-slate-500 dark:text-slate-400 text-sm text-center mb-10 leading-relaxed font-medium px-4">
+                This will permanently delete all staff records, student reservations, and notices. <span className="text-red-500 font-bold">This operation cannot be reversed.</span>
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  onClick={() => setShowResetDialog(false)}
+                  className="px-6 py-4 rounded-2xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-all active:scale-[0.98]"
+                >
+                  Keep Data
+                </button>
+                <button
+                  onClick={confirmReset}
+                  className="px-6 py-4 rounded-2xl bg-red-600 text-white font-bold text-sm shadow-xl shadow-red-200 dark:shadow-none hover:bg-red-700 transition-all active:scale-[0.98]"
+                >
+                  Confirm Reset
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
