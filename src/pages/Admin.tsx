@@ -19,6 +19,12 @@ interface Staff {
   is_present: boolean;
 }
 
+interface Announcement {
+  id: string;
+  text: string;
+  createdAt: string;
+}
+
 interface Reservation {
   id: string;
   name: string;
@@ -46,11 +52,13 @@ export function Admin() {
   });
   const [staffList, setStaffList] = useState<Staff[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
 
   // Edit State
   const [editCapacity, setEditCapacity] = useState('0');
   const [editOccupancy, setEditOccupancy] = useState('0');
   const [newStaffName, setNewStaffName] = useState('');
+  const [announcementText, setAnnouncementText] = useState('');
 
   // Load and Persist
   useEffect(() => {
@@ -59,6 +67,7 @@ export function Admin() {
     const savedStatus = localStorage.getItem('seatidle_status');
     const savedStaff = localStorage.getItem('seatidle_staff');
     const savedRes = localStorage.getItem('seatidle_reservations');
+    const savedAnnouncements = localStorage.getItem('seatidle_announcements');
 
     if (savedStatus) {
       const parsed = JSON.parse(savedStatus);
@@ -68,9 +77,10 @@ export function Admin() {
     }
     if (savedStaff) setStaffList(JSON.parse(savedStaff));
     if (savedRes) setReservations(JSON.parse(savedRes));
+    if (savedAnnouncements) setAnnouncements(JSON.parse(savedAnnouncements));
   }, [user]);
 
-  const saveToStorage = (type: 'status' | 'staff' | 'res', data: any) => {
+  const saveToStorage = (type: 'status' | 'staff' | 'res' | 'announcements', data: any) => {
     localStorage.setItem(`seatidle_${type}`, JSON.stringify(data));
     // Trigger storage event for cross-tab sync if in the same browser
     window.dispatchEvent(new Event('storage'));
@@ -157,11 +167,31 @@ export function Admin() {
     saveToStorage('res', updated);
   };
 
+  const addAnnouncement = () => {
+    if (!announcementText.trim()) return;
+    const newAnn: Announcement = {
+      id: Date.now().toString(),
+      text: announcementText,
+      createdAt: new Date().toISOString()
+    };
+    const updated = [newAnn, ...announcements];
+    setAnnouncements(updated);
+    saveToStorage('announcements', updated);
+    setAnnouncementText('');
+  };
+
+  const deleteAnnouncement = (id: string) => {
+    const updated = announcements.filter(a => a.id !== id);
+    setAnnouncements(updated);
+    saveToStorage('announcements', updated);
+  };
+
   const resetData = () => {
     if (confirm('DANGER: This will wipe all staff and reservations. Reset to factory defaults?')) {
       localStorage.removeItem('seatidle_status');
       localStorage.removeItem('seatidle_staff');
       localStorage.removeItem('seatidle_reservations');
+      localStorage.removeItem('seatidle_announcements');
       window.location.reload();
     }
   };
@@ -306,6 +336,48 @@ export function Admin() {
                 ADD
               </button>
             </div>
+          </section>
+
+          {/* New Announcement Section */}
+          <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm">
+            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-widest mb-6 flex items-center">
+              <Mail className="w-4 h-4 mr-2 text-indigo-500" />
+              Post Announcement
+            </h3>
+            <div className="space-y-4">
+              <textarea 
+                rows={3}
+                placeholder="Type important notice for students..."
+                value={announcementText}
+                onChange={(e) => setAnnouncementText(e.target.value)}
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600 dark:text-slate-200 transition-all resize-none"
+              />
+              <button 
+                onClick={addAnnouncement}
+                className="w-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 py-3 rounded-2xl font-bold text-xs hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all"
+              >
+                POST NOTICE
+              </button>
+            </div>
+
+            {announcements.length > 0 && (
+              <div className="mt-8 space-y-4">
+                <p className="text-[10px] font-bold uppercase text-slate-400 tracking-widest">Active Notices</p>
+                <div className="space-y-3">
+                  {announcements.map(ann => (
+                    <div key={ann.id} className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-800 relative group">
+                      <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed pr-6">{ann.text}</p>
+                      <button 
+                        onClick={() => deleteAnnouncement(ann.id)}
+                        className="absolute top-2 right-2 p-1 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </section>
         </div>
 

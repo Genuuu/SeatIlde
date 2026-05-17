@@ -18,6 +18,12 @@ interface Staff {
   is_present: boolean;
 }
 
+interface Announcement {
+  id: string;
+  text: string;
+  createdAt: string;
+}
+
 interface Reservation {
   id: string;
   name: string;
@@ -39,8 +45,8 @@ export function Dashboard() {
   });
   
   const [staffList, setStaffList] = useState<Staff[]>([]);
-  
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   
   // Booking Form State
   const [bookingName, setBookingName] = useState('');
@@ -61,19 +67,23 @@ export function Dashboard() {
     const savedStatus = localStorage.getItem('seatidle_status');
     const savedStaff = localStorage.getItem('seatidle_staff');
     const savedRes = localStorage.getItem('seatidle_reservations');
+    const savedAnnouncements = localStorage.getItem('seatidle_announcements');
 
     if (savedStatus) setStatus(JSON.parse(savedStatus));
     if (savedStaff) setStaffList(JSON.parse(savedStaff));
     if (savedRes) setReservations(JSON.parse(savedRes));
+    if (savedAnnouncements) setAnnouncements(JSON.parse(savedAnnouncements));
 
     // Listen for changes from Admin panel (Cross-tab sync for demo)
     const handleStorageChange = () => {
       const s = localStorage.getItem('seatidle_status');
       const st = localStorage.getItem('seatidle_staff');
       const rs = localStorage.getItem('seatidle_reservations');
+      const ra = localStorage.getItem('seatidle_announcements');
       if (s) setStatus(JSON.parse(s));
       if (st) setStaffList(JSON.parse(st));
       if (rs) setReservations(JSON.parse(rs));
+      if (ra) setAnnouncements(JSON.parse(ra));
     };
 
     window.addEventListener('storage', handleStorageChange);
@@ -222,6 +232,34 @@ export function Dashboard() {
       {/* Right Panel: Info & Reservation */}
       <div className="col-span-1 md:col-span-12 lg:col-span-5 flex flex-col space-y-6 md:space-y-8">
         
+        {/* Announcements Section */}
+        {announcements.length > 0 && (
+          <section className="bg-amber-50 dark:bg-amber-950/20 rounded-3xl border border-amber-100 dark:border-amber-900/30 p-6 md:p-8 shadow-sm transition-colors">
+            <h3 className="text-sm font-bold text-amber-800 dark:text-amber-400 uppercase tracking-wider mb-6 flex items-center">
+              <AlertCircle className="w-4 h-4 mr-2" />
+              Latest Announcements
+            </h3>
+            <div className="space-y-4">
+              {announcements.map((ann, idx) => (
+                <div key={ann.id} className={cn(
+                  "p-4 rounded-2xl border transition-all",
+                  idx === 0 ? "bg-white dark:bg-slate-900 border-amber-200 dark:border-amber-800 shadow-sm" : "bg-transparent border-transparent"
+                )}>
+                  <p className={cn(
+                    "text-sm leading-relaxed",
+                    idx === 0 ? "text-slate-800 dark:text-slate-200 font-semibold" : "text-slate-500 dark:text-slate-400"
+                  )}>
+                    {ann.text}
+                  </p>
+                  <p className="text-[9px] font-bold text-slate-400 dark:text-slate-600 mt-2 uppercase tracking-widest">
+                    {new Date(ann.createdAt).toLocaleDateString()} at {new Date(ann.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Staff Section */}
         <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 md:p-8 shadow-sm flex-1 transition-colors">
           <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider mb-6 flex items-center">
