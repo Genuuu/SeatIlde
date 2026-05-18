@@ -45,9 +45,9 @@ export function Layout() {
             {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
           </button>
 
-          <div className="hidden md:flex items-center bg-emerald-50 dark:bg-emerald-900/20 px-3 py-1.5 rounded-full border border-emerald-100 dark:border-emerald-900/30">
-            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse mr-2"></span>
-            <span className="text-emerald-700 dark:text-emerald-400 text-xs font-semibold uppercase tracking-wider">System Online</span>
+          <div className="hidden md:flex items-center bg-brand-green/10 dark:bg-brand-green/20 px-3 py-1.5 rounded-full border border-brand-green/20 dark:border-brand-green/30">
+            <span className="w-2 h-2 bg-brand-green rounded-full animate-pulse mr-2 shadow-[0_0_8px_var(--color-brand-green)]"></span>
+            <span className="text-brand-green dark:text-brand-green text-xs font-semibold uppercase tracking-wider">System Online</span>
           </div>
           <div className="text-right border-l border-slate-200 dark:border-slate-700 pl-4 md:pl-6">
             <p className="text-xs text-slate-500 dark:text-slate-400 font-medium uppercase tracking-tighter">Central Library</p>

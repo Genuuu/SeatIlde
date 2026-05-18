@@ -53,6 +53,7 @@ export function Dashboard() {
   // Booking Form State
   const [bookingName, setBookingName] = useState('');
   const [bookingSlot, setBookingSlot] = useState('08:00 - 10:00');
+  const [bookingDate, setBookingDate] = useState(new Date().toISOString().split('T')[0]);
   const [isBooking, setIsBooking] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState<string | null>(null);
 
@@ -64,6 +65,9 @@ export function Dashboard() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   
+  const ALLOWED_ADMINS = ['admin@seatidle.com', 'genukakisara@gmail.com'];
+  const isAdmin = user && ALLOWED_ADMINS.includes(user.email || '');
+
   // Real-time Listeners
   useEffect(() => {
     // 1. Library Status (from ESP32 / Admin)
@@ -139,25 +143,40 @@ export function Dashboard() {
     if (!bookingName.trim()) return;
 
     setIsBooking(true);
+    
+    // Safety timeout to prevent infinite loading
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('TIMEOUT')), 10000)
+    );
+
     try {
       const otp = Math.floor(1000 + Math.random() * 9000).toString();
       const resRef = ref(database, 'active_reservations');
       const newRes = {
         name: bookingName,
         time: bookingSlot,
+        date: bookingDate,
         is_used: false,
         otp,
         userId: user.uid,
         createdAt: new Date().toISOString()
       };
       
-      await push(resRef, newRes);
+      // Use Promise.race to handle potential hangs
+      await Promise.race([
+        push(resRef, newRes),
+        timeoutPromise
+      ]);
 
       setBookingSuccess(otp);
       setBookingName(user.email?.split('@')[0] || '');
-      setTimeout(() => setBookingSuccess(null), 10000);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Booking error:", error);
+      if (error.message === 'TIMEOUT') {
+        alert("Connection timeout. Please check your internet and try again.");
+      } else {
+        alert("Failed to secure spot: " + (error.message || "Unknown error"));
+      }
     } finally {
       setIsBooking(false);
     }
@@ -217,7 +236,19 @@ export function Dashboard() {
       <section className="col-span-1 md:col-span-12 lg:col-span-7 bg-white dark:bg-slate-900 rounded-[40px] border border-slate-200/60 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none flex flex-col items-center justify-center relative overflow-hidden p-8 md:p-16 min-h-[450px] md:min-h-[550px] transition-all">
         <div className="absolute top-0 left-0 w-full h-1.5 bg-brand-blue"></div>
         <div className="absolute -right-20 -bottom-20 w-96 h-96 bg-brand-blue/5 dark:bg-brand-blue/10 rounded-full opacity-50 blur-[100px]"></div>
-        <div className="absolute -left-10 -top-10 w-64 h-64 bg-brand-green/5 dark:bg-brand-green/10 rounded-full opacity-30 blur-[80px]"></div>
+        <div className="absolute -left-10 -top-10 w-64 h-64 bg-brand-green/15 dark:bg-brand-green/20 rounded-full opacity-30 blur-[80px]"></div>
+
+        {isAdmin && (
+          <motion.a
+            href="/admin"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="absolute top-6 right-6 bg-brand-blue text-white px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-brand-blue/20 flex items-center hover:scale-105 transition-all z-20"
+          >
+            <Lock className="w-3 h-3 mr-2" />
+            Admin Panel
+          </motion.a>
+        )}
         
         <p className="text-slate-400 dark:text-slate-500 font-bold uppercase tracking-[0.25em] text-[10px] md:text-xs mb-8 z-10 transition-colors bg-slate-50 dark:bg-slate-800/50 px-4 py-1.5 rounded-full border border-slate-100 dark:border-slate-800">
           Currently Available
@@ -332,7 +363,7 @@ export function Dashboard() {
                       <p className="text-[10px] text-brand-green font-bold uppercase tracking-widest mt-0.5">Online Helper</p>
                     </div>
                   </div>
-                  <div className="w-2.5 h-2.5 bg-brand-green rounded-full shadow-[0_0_8px_#84cc16]"></div>
+                  <div className="w-2.5 h-2.5 bg-brand-green rounded-full shadow-[0_0_8px_var(--color-brand-green)]"></div>
                 </motion.div>
               ))
             ) : (
@@ -371,7 +402,12 @@ export function Dashboard() {
                 <div className="bg-white px-10 py-5 rounded-3xl inline-block shadow-2xl">
                   <span className="text-4xl font-mono font-black text-brand-blue tracking-[0.5em]">{bookingSuccess}</span>
                 </div>
-                <p className="text-[10px] text-white/40 uppercase font-black tracking-widest mt-8">Show this code at the gate</p>
+                <button 
+                  onClick={() => setBookingSuccess(null)}
+                  className="w-full mt-8 bg-white/10 hover:bg-white/20 text-white font-bold py-3 rounded-2xl text-[10px] uppercase tracking-widest transition-all"
+                >
+                  Confirm & Close
+                </button>
               </motion.div>
             ) : !user || showAuth ? (
               <motion.div 
@@ -494,6 +530,19 @@ export function Dashboard() {
                     />
                   </div>
                   <div>
+                    <label className="text-[10px] font-black uppercase text-brand-green block mb-2 px-1 tracking-[0.2em]">Booking Date</label>
+                    <div className="relative">
+                      <input 
+                        type="date" 
+                        required
+                        value={bookingDate}
+                        onChange={(e) => setBookingDate(e.target.value)}
+                        min={new Date().toISOString().split('T')[0]}
+                        className="w-full bg-white/5 border border-white/10 rounded-3xl px-6 py-4.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-green/40 cursor-pointer font-bold transition-all hover:bg-white/10 text-white"
+                      />
+                    </div>
+                  </div>
+                  <div>
                     <label className="text-[10px] font-black uppercase text-brand-green block mb-2 px-1 tracking-[0.2em]">Preferred Window</label>
                     <div className="relative">
                       <select 
@@ -540,7 +589,7 @@ export function Dashboard() {
                   reservations.filter(r => r.userId === user.uid && !r.is_used).map(res => (
                     <div key={res.id} className="bg-white/10 backdrop-blur-sm border border-white/10 rounded-3xl p-5 flex items-center justify-between transition-all hover:bg-white/15">
                       <div>
-                        <p className="text-xs font-black text-white">{res.time}</p>
+                        <p className="text-xs font-black text-white">{res.date} • {res.time}</p>
                         <p className="text-[10px] text-brand-green font-mono font-bold tracking-[0.2em] mt-1.5 bg-brand-green/10 inline-block px-2 py-0.5 rounded-lg border border-brand-green/20 uppercase">
                           OTP: {res.otp}
                         </p>

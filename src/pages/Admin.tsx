@@ -32,6 +32,7 @@ interface Reservation {
   id: string;
   name: string;
   time: string;
+  date?: string;
   is_used: boolean;
   otp: string;
   userId?: string;
@@ -624,7 +625,7 @@ export function Admin() {
                           <td className="px-8 py-5">
                             <span className={cn(
                               "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-tighter",
-                              staff.is_present ? "bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400" : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-500"
+                              staff.is_present ? "bg-brand-green/10 dark:bg-brand-green/20 text-brand-green dark:text-brand-green" : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-500"
                             )}>
                               {staff.is_present ? 'Present' : 'Away'}
                             </span>
@@ -634,7 +635,7 @@ export function Admin() {
                               onClick={() => toggleStaffPresence(staff.id, staff.is_present)}
                               className={cn(
                                 "px-4 py-2 rounded-xl text-xs font-bold transition-all",
-                                staff.is_present ? "text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/10" : "text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/10"
+                                staff.is_present ? "text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/10" : "text-brand-green hover:bg-brand-green/5 dark:hover:bg-brand-green/10"
                               )}
                             >
                               {staff.is_present ? 'Set Away' : 'Set Present'}
@@ -774,6 +775,7 @@ export function Admin() {
               <thead className="bg-slate-50 dark:bg-slate-800/50 border-y border-slate-100 dark:border-slate-800 text-[10px] font-bold uppercase text-slate-400 dark:text-slate-500 tracking-widest">
                 <tr>
                   <th className="px-8 py-4">Student</th>
+                  <th className="px-8 py-4">Booking Date</th>
                   <th className="px-8 py-4">Time Slot</th>
                   <th className="px-8 py-4">OTP</th>
                   <th className="px-8 py-4">Status</th>
@@ -784,6 +786,7 @@ export function Admin() {
                 {reservations.map(res => (
                   <tr key={res.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                     <td className="px-8 py-5 font-semibold text-slate-700 dark:text-slate-300 text-sm">{res.name}</td>
+                    <td className="px-8 py-5 text-brand-blue dark:text-brand-green text-xs font-black">{res.date || 'N/A'}</td>
                     <td className="px-8 py-5 text-slate-500 dark:text-slate-500 text-xs font-medium">{res.time}</td>
                     <td className="px-8 py-5">
                       <span className="font-mono font-bold text-brand-blue dark:text-brand-green text-base tracking-widest">{res.otp}</span>
